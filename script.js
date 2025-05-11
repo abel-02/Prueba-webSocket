@@ -1,19 +1,19 @@
 const socket = new WebSocket("ws://127.0.0.1:8000/ws");
 
 socket.onopen = () => {
-  console.log("✅ Conectado al servidor WebSocket");
+  console.log("Conectado al servidor WebSocket");
 
   navigator.mediaDevices.getUserMedia({ video: true })
     .then(stream => {
       const video = document.getElementById('video');
       video.srcObject = stream;
       video.play();
-      console.log("✅ Cámara activada correctamente");
+      console.log("Cámara activada correctamente");
 
-      startStreaming(video); // 🔥 Aseguramos que la función se ejecuta
-      console.log("🚀 Iniciando transmisión...");
+      startStreaming(video); // Aseguramos que la función se ejecuta
+      console.log("Iniciando transmisión...");
     })
-    .catch(err => console.error("🚨 Error al acceder a la cámara:", err));
+    .catch(err => console.error("Error al acceder a la cámara:", err));
 };
 
 function startStreaming(video) {

@@ -8,7 +8,7 @@ from PIL import Image
 app = FastAPI()
 
 # Cargar imagen de referencia (persona autorizada)
-known_image = face_recognition.load_image_file("authorized_person1.jpg")
+known_image = face_recognition.load_image_file("personaAutorizada.jpg")
 known_encoding = face_recognition.face_encodings(known_image)[0]
 
 import cv2  # Necesario para convertir la imagen correctamente
@@ -16,7 +16,7 @@ import cv2  # Necesario para convertir la imagen correctamente
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    print("✅ WebSocket abierto, esperando imágenes...")
+    print("WebSocket abierto, esperando imágenes...")
 
     while True:
         try:
@@ -30,20 +30,20 @@ async def websocket_endpoint(websocket: WebSocket):
             face_locations = face_recognition.face_locations(rgb_image)
             face_encodings = face_recognition.face_encodings(rgb_image, face_locations)
 
-            print(f"👀 Rostros detectados: {len(face_locations)}")
+            print(f"Rostros detectados: {len(face_locations)}")
 
             # Comprobar si alguno de los rostros coincide con el autorizado
             for face_encoding in face_encodings:
                 match = face_recognition.compare_faces([known_encoding], face_encoding, tolerance=0.6)
                 if match[0]:
-                    await websocket.send_text("✅ Rostro autorizado")
-                    print("✅ Rostro autorizado")
+                    await websocket.send_text("Rostro autorizado")
+                    print("Rostro autorizado")
                 else:
-                    await websocket.send_text("❌ Rostro NO autorizado")
-                    print("❌ Rostro NO autorizado")
+                    await websocket.send_text("Rostro NO autorizado")
+                    print("Rostro NO autorizado")
 
         except Exception as e:
-            print("🚨 Error en el procesamiento:", e)
+            print("Error en el procesamiento:", e)
             break
 
 if __name__ == "__main__":
