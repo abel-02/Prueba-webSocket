@@ -6,8 +6,10 @@ import cv2
 from io import BytesIO
 from datetime import datetime
 from PIL import Image
+import os
 
 from reconocimiento import identificar_persona
+from utilsVectores import guardar_vector, cargar_vectores
 
 app = FastAPI()
 
@@ -21,9 +23,13 @@ async def websocket_endpoint(websocket: WebSocket):
 
     while True:
         try:
-            data = await websocket.receive_text()
-            image_data = base64.b64decode(data.split(',')[1])
-            image = Image.open(BytesIO(image_data))  # ✅ Convertir correctamente los bytes en imagen
+            # Recibir datos en formato JSON
+            data = await websocket.receive_json()
+            nombre = data.get("nombre")
+            registrar = data.get("registrar", False)  # Modo registro
+
+            image_data = base64.b64decode(data["imagen"])
+            image = Image.open(BytesIO(image_data))
             image = np.array(image)
 
             # Convertir imagen a formato compatible con Face Recognition
@@ -33,14 +39,27 @@ async def websocket_endpoint(websocket: WebSocket):
 
             print(f"Rostros detectados: {len(face_locations)}")
 
-            # Comprobar si el rostro es reconocido
-            for face_encoding in face_encodings:
-                nombre, distancia = identificar_persona(face_encoding)
-                if nombre:
-                    # Guardar fichaje con fecha y hora
-                    fichajes[nombre] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    await websocket.send_text(f"✅ {nombre} fichado a las {fichajes[nombre]}")
-                    print(f"✅ {nombre} fichado")
+            if not face_encodings:
+                await websocket.send_text("🚫 No se detectó un rostro válido")
+                continue
+
+            vector_actual = face_encodings[0]
+
+            if registrar and nombre:  # 📌 Modo registro
+                # Determinar siguiente contador disponible
+                contador = 1
+                while os.path.exists(os.path.join("vectores", f"{nombre}_{contador}.npy")):
+                    contador += 1
+
+                guardar_vector(nombre, contador, vector_actual)
+                await websocket.send_text(f"✅ Persona '{nombre}' registrada exitosamente con vector {contador}")
+                print(f"✅ Persona '{nombre}' registrada")
+            else:  # 📌 Modo detección normal
+                nombre_detectado, distancia = identificar_persona(vector_actual)
+                if nombre_detectado:
+                    fichajes[nombre_detectado] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    await websocket.send_text(f"✅ {nombre_detectado} fichado a las {fichajes[nombre_detectado]}")
+                    print(f"✅ {nombre_detectado} fichado")
                 else:
                     await websocket.send_text("❌ Rostro NO reconocido")
                     print("❌ Rostro NO reconocido")

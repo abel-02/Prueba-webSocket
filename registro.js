@@ -8,13 +8,18 @@ socket.onopen = () => {
       const video = document.getElementById('video');
       video.srcObject = stream;
       video.play();
-      console.log("Cámara activada correctamente");
     })
     .catch(err => console.error("Error al acceder a la cámara:", err));
 };
 
-// ✅ Enviar imagen solo cuando se toca el botón
 document.getElementById("startRecognition").addEventListener("click", () => {
+  const nombre = document.getElementById("nombre").value.trim();
+
+  if (!nombre) {
+    alert("⚠️ Debes ingresar un nombre antes de iniciar el reconocimiento.");
+    return;
+  }
+
   const video = document.getElementById('video');
   const canvas = document.createElement('canvas');
   canvas.width = video.videoWidth;
@@ -22,8 +27,8 @@ document.getElementById("startRecognition").addEventListener("click", () => {
   canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
   const imageData = canvas.toDataURL('image/jpeg').split(',')[1];  // ✅ Elimina el prefijo
 
-  console.log("📤 Enviando imagen para reconocimiento...");
-  socket.send(JSON.stringify({ nombre: "", imagen: imageData, registrar: false }));  // ✅ Solo cuando se toca el botón
+  console.log("📤 Enviando datos de registro:", nombre);
+  socket.send(JSON.stringify({ nombre: nombre, imagen: imageData, registrar: true }));  // ✅ `registrar: true`
 });
 
 socket.onmessage = (event) => {
