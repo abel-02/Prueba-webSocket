@@ -2,16 +2,17 @@ from fastapi import FastAPI, WebSocket
 import face_recognition
 import numpy as np
 import base64
+import cv2
 from io import BytesIO
+from datetime import datetime
 from PIL import Image
+
+from reconocimiento import identificar_persona
 
 app = FastAPI()
 
-# Cargar imagen de referencia (persona autorizada)
-known_image = face_recognition.load_image_file("personaAutorizada.jpg")
-known_encoding = face_recognition.face_encodings(known_image)[0]
-
-import cv2  # Necesario para convertir la imagen correctamente
+# Base de datos en memoria para fichajes
+fichajes = {}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -22,7 +23,7 @@ async def websocket_endpoint(websocket: WebSocket):
         try:
             data = await websocket.receive_text()
             image_data = base64.b64decode(data.split(',')[1])
-            image = Image.open(BytesIO(image_data))
+            image = Image.open(BytesIO(image_data))  # ✅ Convertir correctamente los bytes en imagen
             image = np.array(image)
 
             # Convertir imagen a formato compatible con Face Recognition
@@ -32,20 +33,22 @@ async def websocket_endpoint(websocket: WebSocket):
 
             print(f"Rostros detectados: {len(face_locations)}")
 
-            # Comprobar si alguno de los rostros coincide con el autorizado
+            # Comprobar si el rostro es reconocido
             for face_encoding in face_encodings:
-                match = face_recognition.compare_faces([known_encoding], face_encoding, tolerance=0.6)
-                if match[0]:
-                    await websocket.send_text("Rostro autorizado")
-                    print("Rostro autorizado")
+                nombre, distancia = identificar_persona(face_encoding)
+                if nombre:
+                    # Guardar fichaje con fecha y hora
+                    fichajes[nombre] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    await websocket.send_text(f"✅ {nombre} fichado a las {fichajes[nombre]}")
+                    print(f"✅ {nombre} fichado")
                 else:
-                    await websocket.send_text("Rostro NO autorizado")
-                    print("Rostro NO autorizado")
+                    await websocket.send_text("❌ Rostro NO reconocido")
+                    print("❌ Rostro NO reconocido")
 
         except Exception as e:
             print("Error en el procesamiento:", e)
             break
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+@app.get("/fichadas")
+async def obtener_fichajes():
+    return fichajes

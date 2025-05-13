@@ -1,0 +1,78 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+    background-color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+
+.container {
+    text-align: center;
+    max-width: 90%;
+    width: 300px;
+    margin: auto;
+}
+
+.logo {
+    width: 150px;
+    margin-bottom: 20px;
+}
+
+.circle-avatar {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    overflow: hidden;
+    background-color: black;
+    margin: 0 auto 20px auto;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.inner-circle {
+    width: 80px;
+    height: 80px;
+    background-color: white;
+    border-radius: 50%;
+    position: absolute;
+}
+
+.instructions {
+    font-size: 14px;
+    margin: 20px 0;
+    padding: 0 10px;
+}
+
+.btn {
+    background-color: #7B80FF;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 14px;
+    cursor: pointer;
+    margin-bottom: 20px;
+}
+
+.login-text {
+    font-size: 12px;
+    color: #444;
+}
+
+.login-text a {
+    text-decoration: none;
+    color: #000;
+    font-weight: bold;
+}
