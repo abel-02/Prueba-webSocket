@@ -8,8 +8,8 @@ from datetime import datetime
 from PIL import Image
 import os
 
-from reconocimiento import identificar_persona
-from utilsVectores import guardar_vector, cargar_vectores
+from back.service.reconocimiento import identificar_persona
+from back.utils.utilsVectores import guardar_vector
 
 app = FastAPI()
 
@@ -48,7 +48,7 @@ async def websocket_endpoint(websocket: WebSocket):
             if registrar and nombre:  # 📌 Modo registro
                 # Determinar siguiente contador disponible
                 contador = 1
-                while os.path.exists(os.path.join("vectores", f"{nombre}_{contador}.npy")):
+                while os.path.exists(os.path.join("../vectores", f"{nombre}_{contador}.npy")):
                     contador += 1
 
                 guardar_vector(nombre, contador, vector_actual)

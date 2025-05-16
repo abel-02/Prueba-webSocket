@@ -1,5 +1,5 @@
 import numpy as np
-from utilsVectores import cargar_vectores, UMBRAL
+from back.utils.utilsVectores import cargar_vectores, UMBRAL
 
 def identificar_persona(vector_actual):
     """
