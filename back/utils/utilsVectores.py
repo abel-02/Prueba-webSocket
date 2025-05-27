@@ -9,7 +9,7 @@ UMBRAL = 0.5
 CARPETA_VECTORES = "vectores"
 os.makedirs(CARPETA_VECTORES, exist_ok=True)
 
-
+'''
 def cargar_vectores():
     """
     Carga todos los vectores .npy y los agrupa por persona (ej: Pedro_1.npy → Pedro → [v1, v2...]).
@@ -38,3 +38,38 @@ def extraer_vector(imagen_bytes: bytes):
     if vectores:
         return vectores[0]
     return None
+'''
+
+import numpy as np
+from sqlalchemy.orm import Session
+from back.db.database import SessionLocal
+
+UMBRAL = 0.5
+
+def guardar_vector(nombre: str, tipo: str, vector: np.ndarray):
+    """Guarda un vector facial en la base de datos"""
+    db: Session = SessionLocal()
+    try:
+        vector_bytes = vector.tobytes()
+        nuevo_vector = Vector(nombre=nombre, tipo=tipo, vector=vector_bytes)
+        db.add(nuevo_vector)
+        db.commit()
+    finally:
+        db.close()
+
+def cargar_vectores():
+    """
+    Carga los vectores desde la base de datos y los agrupa por nombre.
+    """
+    db: Session = SessionLocal()
+    vectores_por_persona = {}
+
+    try:
+        vectores = db.query(Vector).all()
+        for v in vectores:
+            vector_np = np.frombuffer(v.vector, dtype=np.float64)  # o float32, según lo que uses
+            vectores_por_persona.setdefault(v.nombre, []).append(vector_np)
+    finally:
+        db.close()
+
+    return vectores_por_persona

@@ -37,46 +37,50 @@ async def websocket_endpoint(websocket: WebSocket):
             print("❌ Error en el procesamiento:", e)
             break
 
-async def registrar_empleado(websocket, data, id_empleado):
-    """Registra un empleado con sus gestos en la base de datos, validando que se hagan correctamente."""
-    vectores_persona = []
-    errores_gestos = []
+async def registrar_empleado(websocket, data_inicial, id_empleado):
+    """Registra un empleado pidiendo imágenes de a una, validando gesto por gesto."""
+    gestos_requeridos = [("normal", None), ("sonrisa", "sonrisa"), ("giro", "giro")]
 
-    for tipo in ["normal", "sonrisa", "giro"]:
-        try:
-            image_data = base64.b64decode(data[f"imagen_{tipo}"])
-            image = np.array(Image.open(BytesIO(image_data)))
-            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            face_encodings = face_recognition.face_encodings(rgb_image)
+    for tipo, gesto in gestos_requeridos:
+        primer_intento = True
+        while True:
+            if primer_intento:
+                await websocket.send_text(f"📸 Por favor, envía imagen del gesto: '{tipo}'")
+                primer_intento = False  # Ya pedimos la imagen
 
-            if not face_encodings:
-                errores_gestos.append(f"❌ No se detectó rostro en imagen '{tipo}'")
-                continue
+            data = await websocket.receive_json()
 
-            vector_actual = face_encodings[0]
+            try:
+                image_data = base64.b64decode(data[f"imagen_{tipo}"])
+                image = np.array(Image.open(BytesIO(image_data)))
+                rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                face_encodings = face_recognition.face_encodings(rgb_image)
 
-            # Si es un gesto, validarlo
-            if tipo in ["sonrisa", "giro"]:
-                if not identificar_gesto(rgb_image, tipo):
-                    errores_gestos.append(f"🚫 El gesto '{tipo}' no fue detectado correctamente")
+                if not face_encodings:
+                    await websocket.send_text(f"❌ No se detectó rostro en imagen '{tipo}', intenta de nuevo")
                     continue
 
-            # Guardar vector si todo está bien
-            vectores_persona.append(vector_actual)
-            guardar_vector(id_empleado, tipo, vector_actual)
+                vector_actual = face_encodings[0]
 
-        except Exception as e:
-            errores_gestos.append(f"⚠️ Error procesando imagen '{tipo}': {e}")
+                if gesto:
+                    if not identificar_gesto(rgb_image, gesto):
+                        await websocket.send_text(f"🚫 El gesto '{gesto}' no fue detectado correctamente, intenta de nuevo")
+                        continue  # 👈 volver a pedir imagen sin mandar alerta nueva
 
-    if len(vectores_persona) >= 2:  # Al menos 2 vectores válidos
-        await websocket.send_text(f"✅ Persona '{id_empleado}' registrada con gestos")
-        print(f"✅ Persona '{id_empleado}' registrada")
-    else:
-        await websocket.send_text("❌ Registro fallido:\n" + "\n".join(errores_gestos))
-        print("❌ Registro fallido:", errores_gestos)
+                # ✅ Gesto validado: guardar vector
+                guardar_vector(id_empleado, tipo, vector_actual)
+                break  # 👉 pasar al siguiente gesto
+
+            except Exception as e:
+                await websocket.send_text(f"⚠️ Error procesando imagen '{tipo}': {e}")
+                continue
+
+    await websocket.send_text(f"✅ Persona '{id_empleado}' registrada correctamente con gestos")
+    print(f"✅ Persona '{id_empleado}' registrada")
+
 
 async def verificar_identidad(websocket, data):
-    """Verifica la identidad de un usuario a través de reconocimiento facial y gestos"""
+    """Verifica identidad con reconocimiento facial y un gesto (liveness)"""
     image_data = base64.b64decode(data["imagen"])
     image = np.array(Image.open(BytesIO(image_data)))
     rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -89,26 +93,47 @@ async def verificar_identidad(websocket, data):
     vector_actual = face_encodings[0]
     nombre_detectado, distancia = identificar_persona(vector_actual)
 
-    if nombre_detectado:
-        gesto_requerido = random.choice(["sonrisa", "giro", "cejas"])
+    if not nombre_detectado:
+        await websocket.send_text("🚫 Persona no reconocida")
+        return
+
+    # ✅ Gesto aleatorio requerido
+    gesto_requerido = random.choice(["sonrisa", "giro", "cejas"])
+
+    # 🔁 Intentar gesto varias veces
+    for intento in range(3):
         await websocket.send_text(f"🔄 Por favor, realiza el gesto: {gesto_requerido}")
-
         nueva_data = await websocket.receive_json()
-        image_data_gesto = base64.b64decode(nueva_data["imagen"])
-        image_gesto = np.array(Image.open(BytesIO(image_data_gesto)))
-        rgb_image_gesto = cv2.cvtColor(image_gesto, cv2.COLOR_BGR2RGB)
-        face_encodings_gesto = face_recognition.face_encodings(rgb_image_gesto)
 
-        if face_encodings_gesto:
-            vector_gesto = face_encodings_gesto[0]
+        try:
+            image_data_gesto = base64.b64decode(nueva_data["imagen"])
+            image_gesto = np.array(Image.open(BytesIO(image_data_gesto)))
+            rgb_image_gesto = cv2.cvtColor(image_gesto, cv2.COLOR_BGR2RGB)
+            face_encodings_gesto = face_recognition.face_encodings(rgb_image_gesto)
 
-            if identificar_gesto(rgb_image_gesto, gesto_requerido):
-                fichajes[nombre_detectado] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                await websocket.send_text(f"✅ {nombre_detectado} fichado con verificación de liveness a las {fichajes[nombre_detectado]}")
-                print(f"✅ {nombre_detectado} fichado correctamente")
-            else:
-                await websocket.send_text("🚫 Verificación fallida, gesto no reconocido o imagen muy similar")
-                print("🚫 Gesto no válido, fichaje bloqueado")
+            if not face_encodings_gesto:
+                await websocket.send_text("❌ No se detectó rostro en la imagen del gesto")
+                continue
+
+            if not identificar_gesto(rgb_image_gesto, gesto_requerido):
+                await websocket.send_text(
+                    f"🚫 El gesto '{gesto_requerido}' no fue detectado. Intenta de nuevo: realiza el gesto '{gesto_requerido}'")
+                continue
+
+            # 🎉 Gesto válido
+            fichajes[nombre_detectado] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            await websocket.send_text(f"✅ {nombre_detectado} fichado con verificación de liveness a las {fichajes[nombre_detectado]}")
+            print(f"✅ {nombre_detectado} fichado correctamente")
+            return
+
+        except Exception as e:
+            await websocket.send_text(f"⚠️ Error procesando imagen del gesto: {e}")
+            continue
+
+    # ❌ Si falló tras 3 intentos
+    await websocket.send_text("🚫 Verificación fallida después de varios intentos. Intenta nuevamente.")
+    print("🚫 Fichaje bloqueado por fallo de gesto")
+
 
 
 
