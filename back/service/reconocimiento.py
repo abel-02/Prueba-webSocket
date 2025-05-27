@@ -1,9 +1,15 @@
 import numpy as np
 from back.utils.utilsVectores import cargar_vectores, UMBRAL
-import random
+
+from back.utils.utils_gestos import detectar_sonrisa, detectar_giro, detectar_cejas_levantadas
 
 UMBRAL_GESTO = 0.35  # 🔧 Ajusta según pruebas
 
+GESTOS_VALIDOS = {
+    "sonrisa": detectar_sonrisa,
+    "giro": detectar_giro,
+    "cejas": detectar_cejas_levantadas
+}
 
 def identificar_persona(vector_actual):
     """Compara el rostro detectado con los registrados para identificar a la persona."""
@@ -22,43 +28,11 @@ def identificar_persona(vector_actual):
 
     return None, None  # 🚫 No se encontró coincidencia
 
-
-def identificar_gesto(vector_gesto, vector_inicial, nombre_detectado):
-    datos_vectores = cargar_vectores()
-
-    if nombre_detectado in datos_vectores:
-        vectores_guardados = datos_vectores[nombre_detectado]
-
-        # 📌 Excluir la imagen neutra y tomar solo los gestos
-        gestos_validos = vectores_guardados[1:] if len(vectores_guardados) > 1 else []
-
-        if not gestos_validos:
-            print("🚫 No hay gestos registrados para esta persona.")
-            return False
-
-        print(f"Vectores registrados para {nombre_detectado}: {gestos_validos}")
-
-        # 📌 Elegir un gesto aleatorio en cada intento
-        gesto_requerido = random.choice(["sonrisa", "giro"])
-        print(f"🔄 Se requiere el gesto: {gesto_requerido}")
-
-        distancia_inicial = np.linalg.norm(vector_inicial - vector_gesto)
-        print(f"⚠️ Comparación inicial vs gesto, distancia calculada: {distancia_inicial}")
-
-        if distancia_inicial < 0.2:
-            print("🚫 La segunda imagen es demasiado similar a la primera, gesto no realizado")
-            return False
-
-        print("✅ Se detectó un cambio en el rostro, verificando si coincide con el gesto requerido...")
-
-        # 📌 Comparar la imagen con los gestos registrados
-        for vector_guardado in gestos_validos:
-            distancia_gesto = np.linalg.norm(vector_gesto - vector_guardado)
-            print(f"Comparando con gesto registrado, distancia: {distancia_gesto}")
-
-            if distancia_gesto < UMBRAL_GESTO:
-                print("✅ Gesto válido, verificación aprobada")
-                return True  # ✅ Gesto válido
-
-    print("🚫 Gesto no reconocido, verificación fallida")
-    return False  # ❌ Gesto no reconocido
+def identificar_gesto(image_np, gesto_requerido):
+    if gesto_requerido == "sonrisa":
+        return detectar_sonrisa(image_np)
+    elif gesto_requerido == "giro":
+        return detectar_giro(image_np)
+    elif gesto_requerido == "cejas":
+        return detectar_cejas_levantadas(image_np)
+    return False
